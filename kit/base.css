@@ -1,0 +1,43 @@
+/* base.css: the neutral foundation every page starts from.
+   It has no look of its own: no colours, no fonts, no sizes. Those come from tokens.css, written from design.md.
+   The fallbacks below (system fonts, browser colours) only show until tokens.css exists. */
+
+/* reset */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html, body { overflow-x: clip; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  min-height: 100svh;
+  background: var(--bg, Canvas);
+  color: var(--ink, CanvasText);
+  font-family: var(--font-body, system-ui, sans-serif);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
+input, button, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+p, h1, h2, h3, h4, h5, h6, li, dd { overflow-wrap: break-word; }
+ul[role="list"], ol[role="list"] { list-style: none; padding: 0; }
+a { color: inherit; }
+
+/* keyboard focus: always visible, appears instantly */
+:focus-visible { outline: 2px solid var(--focus, var(--accent, Highlight)); outline-offset: 3px; }
+
+/* placeholders for content the client hasn't supplied yet, e.g. <span class="tbc">[Year]</span> */
+.tbc { opacity: .6; font-style: normal; }
+
+/* hidden visually, still read by screen readers */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* reveals: content is visible by default. A script adds .js to <html>, and only then may things start hidden.
+   Pages add <script>document.documentElement.classList.add('js')</script> in the <head>. */
+
+/* motion off for people who ask for it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important; scroll-behavior: auto !important;
+  }
+}

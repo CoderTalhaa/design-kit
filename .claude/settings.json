@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash(python3 -m http.server:*)",
+      "Bash(node tools/shot.mjs:*)",
+      "Bash(node tools/hover.mjs:*)",
+      "Bash(node .claude/skills/hallmark/scripts/sloplint.mjs:*)",
+      "Bash(npx skills add:*)",
+      "Bash(npx skills update:*)",
+      "Bash(git pull:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git reset --hard:*)"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAGE: SECTION, option X</title>
+<!-- content may start hidden only once this runs, so the section still reads with JavaScript off -->
+<script>document.documentElement.classList.add('js')</script>
+<!-- paths assume pages/<page>/sections/<section>/<file>.html -->
+<link rel="stylesheet" href="../../../../kit/base.css">
+<link rel="stylesheet" href="../../../../kit/tokens.css">
+<!-- add shared kit files here, e.g. <link rel="stylesheet" href="../../../../kit/button.css"> -->
+<style>
+  /* OPTION X · <name>: one or two lines on how this option shows the content and how it differs from the other option.
+     content from brief/<page>/, inventory in notes/content-<page>.md */
+
+  /* layout: desktop first, then the phone rules below */
+
+  @media (max-width: 900px) {
+    /* phone and small tablet */
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* the finished state, without motion */
+  }
+</style>
+</head>
+<body>
+<section class="SECTION" id="SECTION" aria-labelledby="SECTION-title">
+  <h2 id="SECTION-title">Heading from the brief</h2>
+  <!-- the section's content, taken from the brief. Missing content gets a visible placeholder:
+       <span class="tbc">[Year]</span> -->
+</section>
+
+<!-- scripts only when an interaction needs one; vanilla JS, no libraries
+<script>
+(() => {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+})();
+</script>
+-->
+</body>
+</html>

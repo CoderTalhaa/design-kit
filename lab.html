@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab — Plutus21 design kit</title>
+<style>
+  /* the lab is a tool, not a design: it stays neutral so it never competes with the work it shows */
+  :root {
+    --lab-bg: #15171c; --lab-bar: rgba(22, 24, 30, .9); --lab-ink: #fff; --lab-ink-2: rgba(255,255,255,.72); --lab-ink-3: rgba(255,255,255,.5);
+    --lab-line: rgba(255,255,255,.14); --lab-chip: rgba(255,255,255,.09); --lab-on: #fff; --lab-on-ink: #111; --lab-pick: #4ade80;
+    color-scheme: dark;
+  }
+  html, body { margin: 0; height: 100%; background: var(--lab-bg); color: var(--lab-ink); font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+  iframe[hidden] { display: none; }
+
+  /* messages for the empty states */
+  .msg { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; }
+  .msg[hidden] { display: none; }
+  .msg div { max-width: 52ch; display: grid; gap: 10px; }
+  .msg h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  .msg p { margin: 0; font-size: 15px; color: var(--lab-ink-2); }
+  .msg code { font-size: 14px; padding: 2px 6px; border-radius: 4px; background: var(--lab-chip); color: var(--lab-ink); }
+
+  /* the switcher bar */
+  .bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 10;
+    display: flex; align-items: center; gap: 8px; padding: 6px; max-width: calc(100vw - 24px);
+    background: var(--lab-bar); border: 1px solid var(--lab-line); border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); white-space: nowrap;
+  }
+  .bar[hidden] { display: none; }
+  select { font: inherit; font-weight: 600; color: var(--lab-ink); background: var(--lab-chip); border: 0; border-radius: 8px; height: 32px; padding: 0 8px; cursor: pointer; max-width: 22ch; }
+  select option { color: #111; }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: var(--lab-chip); }
+  .seg:empty { display: none; }
+  .seg button { font: inherit; font-weight: 700; min-width: 34px; height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--lab-ink-2); cursor: pointer; }
+  .seg button:hover { color: var(--lab-ink); }
+  .seg button[aria-pressed="true"] { background: var(--lab-on); color: var(--lab-on-ink); }
+  .picked { font-weight: 600; color: var(--lab-pick); }
+  .picked[hidden] { display: none; }
+  .note { color: var(--lab-ink-3); max-width: 40ch; overflow: hidden; text-overflow: ellipsis; }
+  .bar a { font: inherit; font-weight: 600; height: 32px; padding: 0 12px; display: inline-flex; align-items: center; border-radius: 8px; background: var(--lab-chip); color: var(--lab-ink); text-decoration: none; }
+  .bar a:hover { background: rgba(255,255,255,.18); }
+  .bar a[hidden] { display: none; }
+  :focus-visible { outline: 2px solid var(--lab-on); outline-offset: 2px; }
+  @media (max-width: 760px) { .note { display: none; } }
+  @media (max-width: 520px) { #open { display: none; } select { max-width: 14ch; } }
+</style>
+</head>
+<body>
+<iframe id="frame" title="Preview" hidden></iframe>
+
+<div class="msg" id="msg" role="status" hidden><div><h1 id="msg-title"></h1><p id="msg-text"></p></div></div>
+
+<div class="bar" id="bar" role="toolbar" aria-label="Lab switcher" hidden>
+  <select id="page" aria-label="Page"></select>
+  <select id="section" aria-label="Section"></select>
+  <div class="seg" id="seg" role="group" aria-label="Option"></div>
+  <span class="picked" id="picked" hidden>✓ Picked</span>
+  <span class="note" id="note"></span>
+  <a id="open" href="#" target="_blank" rel="noopener" title="Open this option on its own, in a new tab">Open</a>
+  <a id="full" href="#" target="_blank" rel="noopener" title="Open the assembled page" hidden>Full page</a>
+</div>
+
+<script>
+// The lab reads pages/index.json (the list of pages) and each pages/<page>/lab.json (its sections and options).
+// Claude keeps both up to date; the formats are described in pages/README.md.
+// Links: lab.html?p=<page>&s=<section>&o=<A|B>. Left and right arrow keys switch between options.
+const $ = (s) => document.querySelector(s);
+const frame = $('#frame'), bar = $('#bar'), pageSel = $('#page'), secSel = $('#section'), seg = $('#seg'),
+      picked = $('#picked'), note = $('#note'), open = $('#open'), full = $('#full');
+const PAGES = {}, params = new URLSearchParams(location.search);
+let page, section, option;
+
+function say(title, text) {
+  $('#msg-title').textContent = title; $('#msg-text').innerHTML = text;
+  $('#msg').hidden = false; frame.hidden = true; frame.removeAttribute('src');
+}
+const getJSON = (url) => fetch(url, { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); });
+const remember = () => { try { localStorage.setItem('lab', JSON.stringify({ page, section, option })); } catch {} };
+const recall = () => { try { return JSON.parse(localStorage.getItem('lab') || 'null') || {}; } catch { return {}; } };
+
+async function load() {
+  if (location.protocol === 'file:') return say('Open the lab through the viewer',
+    'The lab can’t read the pages when it’s opened as a file. Start the viewer from the kit folder with <code>python3 -m http.server 8080 --bind 127.0.0.1</code>, then go to <code>http://localhost:8080/lab.html</code>.');
+  let list;
+  try { list = (await getJSON('pages/index.json')).pages || []; } catch { list = []; }
+  for (const p of list) {
+    try { PAGES[p.id] = { ...(await getJSON(`pages/${p.id}/lab.json`)), id: p.id, name: p.name || p.id }; }
+    catch { PAGES[p.id] = { id: p.id, name: p.name || p.id, sections: [], broken: true }; }
+  }
+  if (!list.length) return say('No pages yet', 'In Claude, say <code>Start a new page</code>. Its sections show up here as soon as the first options are built.');
+
+  const saved = recall();
+  page = params.get('p') in PAGES ? params.get('p') : saved.page in PAGES ? saved.page : list[0].id;
+  section = params.get('s') || (saved.page === page ? saved.section : null);
+  option = params.get('o') || (saved.page === page && saved.section === section ? saved.option : null);
+  for (const p of list) pageSel.add(new Option(PAGES[p.id].name, p.id));
+  bar.hidden = false;
+  fillSections(); render();
+}
+
+function fillSections() {
+  const p = PAGES[page]; pageSel.value = page; secSel.innerHTML = '';
+  for (const s of p.sections || []) secSel.add(new Option(s.options?.length ? s.name : `${s.name} (todo)`, s.id));
+  const ready = (p.sections || []).filter((s) => s.options?.length);
+  if (!(p.sections || []).some((s) => s.id === section)) section = (ready[0] || p.sections?.[0] || {}).id;
+}
+
+function render() {
+  const p = PAGES[page], s = (p.sections || []).find((x) => x.id === section);
+  full.hidden = !p.page; if (p.page) full.href = `pages/${page}/${p.page}`;
+  if (p.broken) { seg.innerHTML = ''; note.textContent = ''; picked.hidden = true; open.hidden = true;
+    return say(`${p.name}: can’t read its lab.json`, `Something is wrong in <code>pages/${page}/lab.json</code>. Ask Claude to check it.`); }
+  if (!s) { seg.innerHTML = ''; note.textContent = ''; picked.hidden = true; open.hidden = true;
+    return say(`${p.name} has no sections yet`, 'In Claude, say <code>Build the next section</code>.'); }
+  secSel.value = section;
+  if (!s.options?.length) { seg.innerHTML = ''; note.textContent = ''; picked.hidden = true; open.hidden = true;
+    return say(`${s.name}: no options yet`, 'In Claude, say <code>Build the next section</code>.'); }
+
+  if (!s.options.some((o) => o.id === option)) option = s.pick && s.options.some((o) => o.id === s.pick) ? s.pick : s.options[0].id;
+  const o = s.options.find((x) => x.id === option), src = `pages/${page}/${o.file}`;
+  seg.innerHTML = s.options.map((x) => `<button type="button" aria-pressed="${x.id === option}" data-id="${x.id}" title="${x.note || ''}">${x.id}</button>`).join('');
+  picked.hidden = s.pick !== option; note.textContent = o.note || ''; open.hidden = false; open.href = src;
+  $('#msg').hidden = true; frame.hidden = false;
+  if (frame.getAttribute('src') !== src) frame.src = src;
+  history.replaceState(null, '', `?p=${encodeURIComponent(page)}&s=${encodeURIComponent(section)}&o=${encodeURIComponent(option)}`);
+  remember();
+}
+
+pageSel.addEventListener('change', () => { page = pageSel.value; section = option = null; fillSections(); render(); });
+secSel.addEventListener('change', () => { section = secSel.value; option = null; render(); });
+seg.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { option = b.dataset.id; render(); } });
+addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'SELECT' || !page) return;
+  const s = PAGES[page].sections?.find((x) => x.id === section), list = s?.options || [];
+  if (list.length < 2) return;
+  const i = list.findIndex((o) => o.id === option);
+  if (e.key === 'ArrowRight') { option = list[(i + 1) % list.length].id; render(); }
+  if (e.key === 'ArrowLeft') { option = list[(i - 1 + list.length) % list.length].id; render(); }
+});
+load();
+</script>
+</body>
+</html>

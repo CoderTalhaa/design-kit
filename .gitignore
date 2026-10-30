@@ -1,0 +1,17 @@
+# local only: onboarding marker, screenshots
+.local/
+
+# the design skills are installed per person (see README), not stored here
+.claude/skills/
+.claude/settings.local.json
+CLAUDE.local.md
+
+# working files the design skills write while they run
+.taste-skill/
+.hallmark/
+
+# system and tool clutter
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
